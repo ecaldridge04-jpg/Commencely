@@ -31,7 +31,7 @@ export function qualificationEvidence(title = '', description = '', {full = fals
     const uncertain = /\b(no|not|without|or|equivalent|unless)\b|\.\.\.|…/i.test(reviewed);
     const status = uncertain || required && preferred ? 'unclear' : preferred ? 'preferred' : required ? 'required' : full ? 'listed' : 'unclear';
     const figures = [...evidence.matchAll(/\b(?:\d+(?:\s*(?:[-–—‑]|to)\s*\d+)?\+?|zero|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s+or\s+more|\s+plus)?\s*(?:years?|yrs?|months?)\b/gi)]
-      .filter(match => !/^\s+(?:of\s+)?(?:college|university|school|education)\b/i.test(evidence.slice(match.index + match[0].length)))
+      .filter(match => !/^\s+(?:(?:of\s+)?(?:college|university|school|education)|old|of age|or older)\b/i.test(evidence.slice(match.index + match[0].length)))
       .map(match => match[0]);
     // A shorter figure must not hide a higher minimum in the same sentence.
     const years = figures.sort((a, b) => minimumYears(b) - minimumYears(a))[0] || null;
@@ -43,7 +43,8 @@ export function qualificationEvidence(title = '', description = '', {full = fals
   const experienceLevel = titleLevel?.replace('entry level', 'entry-level') ?? null;
   const noExperience = clauses.some(clause =>
     /^\s*(?:[-•]\s*)?(?:no (?:(?:prior|previous|professional|work|relevant|banking|sales|industry) )*experience (?:is )?(?:required|needed|necessary)|experience (?:is )?not (?:required|necessary))(?:\s*[,;:–—-]\s*(?:training (?:is |will be )?provided|we(?:['’]ll| will) train(?: you)?|we (?:offer|provide) (?:a )?(?:paid[,\s-]*)?(?:hands-on[,\s-]*)?(?:formal )?training(?: program)?(?: in [\w ,&-]+)?))?[.!]?\s*$/i.test(clause) ||
-    /^(?:experience:\s*)?(?:\d+\+?\s*(?:months?|years?)\s+)?(?:(?:prior|previous|professional|work|relevant|banking|sales) )*experience (?:is )?preferred(?:,? but| and) not required[.!]?\s*$/i.test(clause)
+    /^(?:experience:\s*)?(?:\d+\+?\s*(?:months?|years?)\s+)?(?:(?:prior|previous|professional|work|relevant|banking|sales) )*experience (?:is )?preferred(?:,? but| and) not required[.!]?\s*$/i.test(clause) ||
+    /^\s*(?:[-•*]\s*)?no (?:(?:prior|previous|work|professional) )*experience (?:is )?(?:required|necessary|needed) (?:as|because) we (?:provide|offer) (?:on.the.job )?training(?: and team support)?(?: to help you (?:succeed|get started))?[.!]?\s*$/i.test(clause)
   );
   const statedMinimums = experience
     .filter(item => item.status === 'required' || item.status === 'listed')
@@ -68,7 +69,7 @@ export function qualificationEvidence(title = '', description = '', {full = fals
     && !/\b(?:director|principal|vice president|vp|head of|chief)\b/i.test(title))) || aboveRange
     ? 'outside'
     : zeroExperience || withinRange || entryLevelTitle || entryLevelPosting ||
-      (full && !aboveRange && /\b(?:assistant|associate|coordinator|clerk|teller|representative|specialist|analyst|accountant|recruiter|administrator)\b/i.test(title))
+      (full && !aboveRange && /\b(?:assistant|associate|coordinator|clerk|teller|banker|representative|specialist|analyst|accountant|recruiter|administrator)\b/i.test(title))
       ? 'potential'
       : 'unclear';
   return {

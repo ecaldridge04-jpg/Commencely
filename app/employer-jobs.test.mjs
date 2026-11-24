@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { plainText, employerResults } from './employer-jobs.mjs';
+
+test('HTML punctuation preserves experience ranges instead of turning the upper bound into a minimum', () => {
+  const text = plainText('Bachelor&rsquo;s degree. 2&ndash;4 years of finance experience.');
+  assert.match(text,/Bachelor’s/);
+  assert.match(text,/2–4 years/);
+});
 test('preserves qualification bullets and nested entities as plain text',()=>{
   assert.equal(plainText('&lt;ul&gt;&lt;li&gt;1–3 years of experience&lt;/li&gt;&lt;li&gt;Agency experience preferred.&lt;/li&gt;&lt;/ul&gt;'),'1–3 years of experience\nAgency experience preferred.');
   assert.equal(plainText('<script>bad()</script><p>A &amp;amp; B</p>'),'A & B');

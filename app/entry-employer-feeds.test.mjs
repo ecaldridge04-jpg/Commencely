@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entryBoards, loadEntryBoard, normalizeStructuredPosting, structuredPostings } from './entry-employer-feeds.mjs';
+import { entryBoards, loadEntryBoard, normalizeStructuredPosting, structuredPostings, getroLocation } from './entry-employer-feeds.mjs';
 import { employerResults } from './employer-jobs.mjs';
 
 const posting = overrides => ({'@type':'JobPosting', title:'Accounting Assistant', description:'No experience required.',
@@ -110,5 +110,48 @@ test('a later bank search failure preserves jobs already fetched and marks cover
     const result = await loadEntryBoard(board);
     assert.equal(result.jobs.length,1);
     assert.equal(result.partial,true);
+  });
+});
+
+test('Advantage imports local business jobs but not demonstrations, foreign jobs or off-site links', async () => {
+  const board = entryBoards.find(item => item.board === 'advantage');
+  const seen = [];
+  await withFetch(async url => {
+    seen.push(url);
+    if (new URL(url).pathname === '/search/') return response(`<table>
+      <tr><td><a href="/job/?req_id=2026-1">Strategy &amp; Execution Analyst</a></td><td>US-AR-Rogers</td></tr>
+      <tr><td><a href="/job/?req_id=2026-2">Part Time Product Demonstrator</a></td><td>US-AR-Rogers</td></tr>
+      <tr><td><a href="/job/?req_id=2026-3">Accounting Assistant</a></td><td>US-MN-Rogers</td></tr>
+      <tr><td><a href="https://evil.example/job/?req_id=2026-4">Accounting Assistant</a></td><td>US-AR-Rogers</td></tr>
+      </table>`);
+    return response(markup(posting({title:'Strategy & Execution Analyst'}))+'<main id="main"><p>No experience required.</p></main>');
+  }, async () => {
+    const data = await loadEntryBoard(board);
+    assert.equal(data.jobs.length,1);
+    assert.equal(data.partial,false);
+    assert.equal(seen.filter(url=>url.includes('/job/')).length,1);
+  });
+});
+
+test('an explicit regional-board address can supply a missing location, never a company office or street name', () => {
+  assert.equal(getroLocation({locations:[],description:'<p><strong>Location: 201 W Walnut St, Rogers, AR.</strong></p>'}), 'Rogers, AR');
+  assert.equal(getroLocation({locations:[],description:'<p>Location: 6300 Nall Ave, Mission, KS.</p><p>Our headquarters is Rogers, AR.</p>'}), undefined);
+  assert.equal(getroLocation({locations:[],description:'Location: 6201 Rogers Ave, Fort Smith, AR.'}), undefined);
+  assert.equal(getroLocation({locations:[{name:'Mission, KS'}],description:'Location: Rogers, AR.'}), undefined);
+  assert.equal(getroLocation({locations:[],description:'Our company serves Fayetteville, AR.'}), undefined);
+});
+
+test('sparse Arvest listings are checked against their actual full-description location', async () => {
+  const board = entryBoards.find(item => item.board === 'careersnwa');
+  const state = jobs => `<script id="__NEXT_DATA__">${JSON.stringify({props:{pageProps:{initialState:{jobs}}}})}</script>`;
+  const candidates = ['local','outside'].map((name,index)=>({id:index+1,title:'Teller',slug:`${index+1}-${name}`,locations:[],organization:{slug:'arvest-bank-group'}}));
+  await withFetch(async url => {
+    if(new URL(url).pathname==='/jobs') return response(state({found:candidates,total:2}));
+    const location=url.includes('1-local')?'Rogers, AR.':'Mission, KS.';
+    return response(state({currentJob:{status:'active',visibility:'visible',title:'Teller',id:url,locations:[],description:`<p>Location: ${location}</p><p>Cash handling experience preferred.</p>`,url:'https://employer.example/job',organization:{name:'Arvest Bank Group'}}}));
+  },async()=>{
+    const data=await loadEntryBoard(board);
+    assert.equal(data.jobs.length,1);
+    assert.equal(data.jobs[0].location.name,'Rogers, AR');
   });
 });

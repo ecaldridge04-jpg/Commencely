@@ -37,8 +37,9 @@ const boards = [
 export function plainText(html = '') {
   let text = String(html);
   for (let pass = 0; pass < 3; pass++) {
-    text = text.replace(/&(?:amp|lt|gt|quot|apos|nbsp);|&#(?:x[0-9a-f]+|\d+);/gi, entity => {
-      const named = {'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' '};
+    text = text.replace(/&(?:amp|lt|gt|quot|apos|nbsp|ndash|mdash|rsquo|lsquo|rdquo|ldquo|bull);|&#(?:x[0-9a-f]+|\d+);/gi, entity => {
+      const named = {'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&apos;':"'",'&nbsp;':' ',
+        '&ndash;':'–','&mdash;':'—','&rsquo;':'’','&lsquo;':'‘','&rdquo;':'”','&ldquo;':'“','&bull;':'•'};
       if (named[entity.toLowerCase()]) return named[entity.toLowerCase()];
       const number = entity.slice(2,-1); const point = number[0].toLowerCase() === 'x' ? parseInt(number.slice(1),16) : Number(number);
       return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : ' ';

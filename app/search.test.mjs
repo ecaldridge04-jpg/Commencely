@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterBusinessJobs, filterDirection, directionSearch } from './search.mjs';
 import { businessMajors, getBusinessMajor, matchesBusinessMajor } from './public/business-majors.js';
+
+test('graduate business searches exclude academic appointments but retain university business staff', () => {
+  const data = filterBusinessJobs({results:[
+    {title:'Teaching Assistant Professor of Marketing'},
+    {title:'Department Chair - Supply Chain Management'},
+    {title:'Assistant Professor of Information Systems'},
+    {title:'Faculty Affairs Coordinator',description:"Bachelor's degree in business administration."},
+    {title:'Supply Chain Management Marketing Specialist'}
+  ]});
+  assert.deepEqual(data.results.map(job=>job.title),['Faculty Affairs Coordinator','Supply Chain Management Marketing Specialist']);
+});
 test('operations excludes observed nursing false positive and keeps business titles', () => {
   const data = { count: 100, results: ['Travel OR Circulator RN - $1,944 per week', 'Operations Manager', 'Business Operations Coordinator', 'Clinical Operations Coordinator', 'Marketing Intern'].map(title => ({title})) };
   const filtered = filterDirection(data, 'operations');

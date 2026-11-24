@@ -31,13 +31,15 @@ Never commit `.env`, account databases, uploads, or credentials. Local account d
 
 ### Entry-level NWA job coverage
 
-The public employer search also discovers current listings from TQL, First Security Bank, First Western Bank, Generations Bank, Bank OZK, and the Northwest Arkansas job board (Getro). No additional account or email address is needed for these sources. Getro descriptions are republished copies, explicitly attributed with a link to that copy; application links still lead to the employer.
+The public employer search also discovers current listings from TQL, First Security Bank, First Western Bank, Generations Bank, Bank OZK, Advantage Solutions, and the Northwest Arkansas job board (Getro). No additional account or email address is needed for these sources. Getro descriptions are republished copies, explicitly attributed with a link to that copy; application links still lead to the employer.
 
 Jobs must name a Northwest Arkansas city or county and Arkansas. Out-of-state jobs, expired structured postings, internal-only bank jobs, and TQL positions requiring relocation are excluded. Existing business-major and career-direction filters still apply. Frontline business roles with an unspecified minimum can appear as potential graduate matches, but never receive a confirmed zero-year label merely because they offer training or omit years.
 
+Arvest listings can be discovered through the regional board even when its search cards omit location metadata. A missing location is accepted only after the full posting provides an explicit `Location:` address ending in an NWA city and Arkansas; company headquarters, incidental city mentions, conflicting structured locations, and out-of-state addresses are not used. Academic appointments such as professors and department chairs are excluded from this undergraduate business search, while university business-staff roles remain eligible.
+
 Zero-year matches appear first. Required/listed minimums of up to three years remain eligible, including ranges such as 3–5. Explicitly optional experience is distinguished from required experience, months are converted to fractions of a year, and company history, awards, or future training are not applicant minimums.
 
-Sources are cached for ten minutes. Regional searches cover six business job families and retrieve at most 24 full descriptions per refresh, prioritizing junior titles and mixing job families. The regional source has short timeouts and reports partial results when a page fails or a search is capped; this is not an exhaustive vacancy count. Employer rate limits and availability can change the results.
+Sources are cached for ten minutes. Regional searches cover ten business job families, including banking, marketing, and supply chain, and retrieve at most 32 full descriptions per refresh, prioritizing junior titles and mixing job families. Advantage Solutions searches five NWA cities and fetches at most 24 business descriptions; product-demonstration and other unrelated titles are not imported. The sources have short timeouts and report partial results when a page fails or a search is capped; this is not an exhaustive vacancy count. Employer rate limits and availability can change the results.
 
 `.openai/hosting.json` preserves the existing Site identity and database binding. `node sites/build.mjs` creates the Worker output. Use the Sites source workflow to test, commit, package and publish this output.
 

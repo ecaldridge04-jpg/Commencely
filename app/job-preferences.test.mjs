@@ -74,3 +74,11 @@ test('duplicates are recognized across providers in smaller Northwest Arkansas t
   assert.equal(jobMatchKey(job), jobMatchKey({...job,location:'Gentry, Arkansas'}));
   assert.equal(jobMatchKey({...job,location:null}), null);
 });
+
+test('minimum ages are not work experience and training explanations do not hide an explicit waiver', () => {
+  const q = read('Retail Sales Representative', 'Must be 18 years old and have 1 year of sales experience.', full);
+  assert.equal(q.experience[0].years,'1 year');
+  const zero = read('Retail Sales Representative', 'You must be 18 years or older.\nNo prior experience is required as we provide training and team support to help you succeed.', full);
+  assert.equal(zero.zeroExperience,true);
+  assert.equal(zero.graduateFit,'potential');
+});

@@ -7,6 +7,7 @@ const searches = {
   operations: { query: 'operations', title: /\b(operations?|business|administrative|office|project|logistics|supply chain)\b/i }
 };
 const nonBusiness = /\b(RN|LPN|nurs(?:e|es|ing)|physician|surgeon|surgical|clinical|circulator|therapist|patient|operating room|engineer(?:s|ing)?|technician|software developer|electrician|plumber)\b/i;
+const academicTitle = /\b(?:professor|lecturer|postdoctoral|post-doc|department chair)\b|\bfaculty (?:member|position|fellow)\b/i;
 const businessTitles = /\b(account (?:manager|specialist|coordinator|director|lead)|accounting|accountant|bookkeep(?:er|ing)|auditor|audit|payroll|financ(?:e|ial)|controller|human resources|HR (?:assistant|coordinator|generalist|manager|specialist)|recruit(?:er|ing|ment)|talent acquisition|procurement|purchas(?:ing|er)|merchandis(?:er|ing)|category (?:manager|management|analyst)|shopper insights|market research|commercial execution|product (?:manager|management|marketing)|brand (?:manager|management)|buyer|compliance|consult(?:ant|ing)|analyst|analytics|e[- ]?commerce|customer experience|executive assistant|program (?:assistant|associate|coordinator|specialist|manager)|territory manager|billing|treasury|underwrit(?:er|ing)|management trainee|leadership development|demand plan(?:ner|ning)|inventory plan(?:ner|ning)|admissions (?:advisor|specialist|coordinator)|enrollment (?:advisor|specialist|coordinator))\b/i;
 const relatedBusinessTitles = [
   /\b(credit|collections?|bank(?:er|ing)|teller|loans?|mortgage|lending|insurance|claims|risk|tax|actuar(?:y|ial)|economist|pricing|costing|financial planning|investment|wealth|revenue cycle|accounts (?:payable|receivable))\b/i,
@@ -34,13 +35,13 @@ export function filterBusinessJobs(data) {
   return {
     ...data,
     results: data.results.filter(({ title = '', description = '', content = '' }) =>
-      businessTechnologyTitles.test(title) || (!nonBusiness.test(title) && (
+      !academicTitle.test(title) && (businessTechnologyTitles.test(title) || (!nonBusiness.test(title) && (
         businessTitles.test(title) ||
         relatedBusinessTitles.some(pattern => pattern.test(title)) ||
         majorRolePatterns.some(pattern => pattern.test(title)) ||
         Object.values(searches).some(rule => rule.title.test(title)) ||
         businessDegree.test(String(description || content).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '))
-      )))
+      ))))
   };
 }
 

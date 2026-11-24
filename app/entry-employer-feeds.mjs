@@ -7,6 +7,7 @@ export const entryBoards = [
   { board: 'firstwestern', company: 'First Western Bank', provider: 'ApplicantPro', origin: 'https://fwbank.applicantpro.com' },
   { board: 'generations', company: 'Generations Bank', provider: 'ApplicantPro', origin: 'https://mygenerations.isolvedhire.com' },
   { board: 'ozk', company: 'Bank OZK', provider: 'Jibe', origin: 'https://careers.ozk.com' },
+  { board: 'advantage', company: 'Advantage Solutions', provider: 'Advantage Careers', origin: 'https://careers.youradv.com' },
   { board: 'careersnwa', company: 'Northwest Arkansas job board', provider: 'Getro', origin: 'https://talent.careersnwa.com' }
 ];
 
@@ -142,6 +143,44 @@ async function jibe(board) {
   }) };
 }
 
+async function advantage(board) {
+  const cities = ['Rogers', 'Bentonville', 'Fayetteville', 'Springdale', 'Lowell'];
+  const pages = await Promise.allSettled(cities.map(async city =>
+    (await request(`${board.origin}/search/?location=${encodeURIComponent(city)}&units=mile`)).text()));
+  if (pages.every(page => page.status === 'rejected')) throw new Error('Advantage careers unavailable');
+  const found = new Set();
+  let partial = pages.some(page => page.status === 'rejected');
+  for (const page of pages) {
+    if (page.status !== 'fulfilled') continue;
+    if (!/<table\b/i.test(page.value)) throw new Error('Advantage search layout changed');
+    partial ||= /[?&](?:page|paged|pg)=[2-9]\d*/i.test(page.value);
+    for (const match of page.value.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      const cells = [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map(cell => cell[1]);
+      if (cells.length < 2) continue;
+      const title = decode(cells[0].replace(/<[^>]*>/g, ' ')).trim();
+      const location = cells[1].replace(/<[^>]*>/g, ' ').replace(/\bUS-AR-/g, '').trim();
+      if (!localCity.test(location) || !/\bUS-AR-/i.test(cells[1]) ||
+          !filterBusinessJobs({results:[{title}]}).results.length) continue;
+      const href = cells[0].match(/href\s*=\s*["']([^"']+)["']/i)?.[1];
+      if (!href) continue;
+      const url = new URL(decode(href), board.origin);
+      if (url.origin === board.origin && url.pathname === '/job/' &&
+          /^[a-z0-9_-]+$/i.test(url.searchParams.get('req_id') ?? '')) found.add(url.href);
+    }
+  }
+  const result = await details([...found].slice(0, 24), async url => {
+    const html = await (await request(url)).text();
+    const posting = structuredPostings(html)[0];
+    const content = html.match(/<main\b[^>]*id=["']main["'][^>]*>([\s\S]*?)<\/main>/i)?.[1];
+    if (!posting || !content) throw new Error('Advantage description layout changed');
+    const job = normalizeStructuredPosting(posting, url);
+    // Its JSON-LD removes spaces between paragraphs. Preserve visible HTML lists
+    // so ages, responsibilities and separate qualification bullets stay separate.
+    return job ? {...job, content} : null;
+  });
+  return {...result, partial:partial || result.partial || found.size > 24};
+}
+
 export function getroState(html) {
   const json = html.match(/<script\b[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
   if (!json) throw new Error('Regional job board layout changed');
@@ -150,10 +189,27 @@ export function getroState(html) {
   return state;
 }
 
+export function getroLocation(job) {
+  const locations = job.locations ?? [];
+  const structured = localLocation(locations.map(value => value.name));
+  if (structured || locations.length) return structured;
+  // Some Arvest copies omit structured locations but publish a clear address line.
+  // Never use the company's offices or an incidental city mention as a job location.
+  const text = decode(job.description ?? '').replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/<\/?(?:p|div|li|br|h[1-6])\b[^>]*>/gi, '\n').replace(/<[^>]*>/g, ' ');
+  const cityState = new RegExp(`(${localCity.source})\\s*,\\s*(?:AR|Arkansas)(?:\\s+\\d{5}(?:-\\d{4})?)?(?:[,\\s]*(?:USA?|United States))?[.\\s]*$`, 'i');
+  for (const match of text.matchAll(/(?:^|\n)\s*Location\s*:\s*([^\n]{1,180})/gi)) {
+    const city = match[1].match(cityState)?.[1];
+    if (city) return `${city}, AR`;
+  }
+  return undefined;
+}
+
 async function getro(board) {
-  const queries = ['accountant', 'analyst', 'coordinator', 'assistant', 'trainee', 'recruiter'];
+  const queries = ['accountant', 'analyst', 'coordinator', 'assistant', 'trainee', 'recruiter',
+    'teller', 'banker', 'marketing', 'supply chain'];
   const pages = await Promise.allSettled(queries.map(async query =>
-    getroState(await (await request(`${board.origin}/jobs?q=${query}`)).text())));
+    getroState(await (await request(`${board.origin}/jobs?q=${encodeURIComponent(query)}`)).text())));
   const found = new Map();
   let partial = pages.some(page => page.status === 'rejected');
   if (pages.every(page => page.status === 'rejected')) throw new Error('Regional job board unavailable');
@@ -168,19 +224,21 @@ async function getro(board) {
     for (const list of lists) {
       const job = list[index];
       if (!job) continue;
-      if (localLocation(job.locations ?? []) && filterBusinessJobs({results:[job]}).results.length &&
+      const sparseBank = !job.locations?.length && job.organization?.slug === 'arvest-bank-group' &&
+        /\b(?:teller|banker)\b/i.test(job.title);
+      if ((localLocation(job.locations ?? []) || sparseBank) && filterBusinessJobs({results:[job]}).results.length &&
           !/\b(?:director|principal|chief|vice president)\b/i.test(job.title)) found.set(job.id, job);
     }
   }
-  const priority = job => /\b(?:assistant|associate|trainee|intern|junior|entry.level)\b/i.test(job.title) ? 0 :
-    /\b(?:senior|sr\.?|manager|lead)\b/i.test(job.title) ? 2 : 1;
+  const priority = job => /\b(?:senior|sr\.?|manager|lead|executive)\b/i.test(job.title) ? 2 :
+    /\b(?:assistant|associate|trainee|intern|junior|entry.level|teller|banker|coordinator)\b/i.test(job.title) ? 0 : 1;
   const candidates = [...found.values()].sort((a, b) => priority(a) - priority(b));
-  const result = await details(candidates.slice(0, 24), async item => {
+  const result = await details(candidates.slice(0, 32), async item => {
     if (!/^[a-z0-9-]+$/.test(item.organization?.slug) || !/^[a-z0-9-]+$/.test(item.slug)) return null;
     const sourceUrl = `${board.origin}/companies/${item.organization.slug}/jobs/${item.slug}`;
     const job = getroState(await (await request(sourceUrl, 3500)).text()).currentJob;
     if (!job) throw new Error('Regional job description missing');
-    const location = localLocation((job.locations ?? []).map(value => value.name));
+    const location = getroLocation(job);
     if (job.status !== 'active' || job.visibility !== 'visible' || job.closedAt || job.deactivatedAt ||
         job.expiresAt && (!Number.isFinite(Date.parse(job.expiresAt)) || Date.parse(job.expiresAt) < Date.now()) ||
         !location || !job.description || !https(job.url)) return null;
@@ -188,7 +246,7 @@ async function getro(board) {
       location: {name: location}, content: job.description, absolute_url: https(job.url),
       source: 'Northwest Arkansas job board (Getro)', sourceUrl };
   }, 12);
-  return {...result, partial: partial || result.partial || candidates.length > 24};
+  return {...result, partial: partial || result.partial || candidates.length > 32};
 }
 
 export function loadEntryBoard(board) {
@@ -196,6 +254,7 @@ export function loadEntryBoard(board) {
   if (board.provider === 'Avature') return tql(board);
   if (board.provider === 'AppOne') return firstSecurity(board);
   if (board.provider === 'Jibe') return jibe(board);
+  if (board.provider === 'Advantage Careers') return advantage(board);
   if (board.provider === 'Getro') return getro(board);
   return null;
 }
